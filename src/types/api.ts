@@ -2,6 +2,9 @@ export type SpeechStyle = "neutral" | "news" | "warm" | "energetic";
 export type Locale = "zh-CN" | "zh-TW";
 export type Audience = "general" | "business" | "social";
 export type AudioFormat = "mp3_44100_128" | "mp3_44100_192";
+export type ColloquialLevel = "low" | "medium" | "high";
+export type SentenceLength = "short" | "medium";
+export type Rhythm = "steady" | "punchy";
 
 export interface ApiError {
   code: string;
@@ -28,6 +31,10 @@ export interface TranslateRequest {
   style?: SpeechStyle;
   locale?: Locale;
   audience?: Audience;
+  videoMode?: boolean;
+  colloquialLevel?: ColloquialLevel;
+  sentenceLength?: SentenceLength;
+  rhythm?: Rhythm;
 }
 
 export type TranslateSuccessResponse = ApiSuccessBase & {
@@ -43,9 +50,14 @@ export type TranslateResponse = TranslateSuccessResponse | TranslateFailureRespo
 export interface TtsRequest {
   text: string;
   style?: SpeechStyle;
+  presetId?: string;
   voiceId?: string;
   speakingRate?: number;
   format?: AudioFormat;
+  stability?: number;
+  similarityBoost?: number;
+  voiceStyle?: number;
+  useSpeakerBoost?: boolean;
 }
 
 export type TtsSuccessResponse = ApiSuccessBase & {

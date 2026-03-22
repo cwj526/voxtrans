@@ -1,13 +1,18 @@
-import { getVoicePresetByStyle } from "@/config/voice-presets";
+import { getVoicePresetByIdOrStyle } from "@/config/voice-presets";
 import { AppError, parseProviderStatusCode } from "@/lib/api-error";
 import type { AudioFormat, SpeechStyle, VoiceSettings } from "@/types/api";
 
 interface ElevenLabsTtsInput {
   text: string;
   style: SpeechStyle;
+  presetId?: string;
   voiceId?: string;
   speakingRate: number;
   format: AudioFormat;
+  stability?: number;
+  similarityBoost?: number;
+  voiceStyle?: number;
+  useSpeakerBoost?: boolean;
 }
 
 function getRequiredEnv(name: string): string {
@@ -18,37 +23,29 @@ function getRequiredEnv(name: string): string {
   return value;
 }
 
-function mergeVoiceSettings(base: VoiceSettings, speakingRate: number) {
-  const speedWeight = speakingRate >= 1 ? 0.12 : 0.08;
-  const rateDelta = speakingRate - 1;
-  const style = Math.max(0, Math.min(1, base.style + rateDelta * speedWeight));
-
+function mergeVoiceSettings(base: VoiceSettings, input: ElevenLabsTtsInput): VoiceSettings {
   return {
-    ...base,
-    style,
+    stability: input.stability ?? base.stability,
+    similarity_boost: input.similarityBoost ?? base.similarity_boost,
+    style: input.voiceStyle ?? base.style,
+    use_speaker_boost: input.useSpeakerBoost ?? base.use_speaker_boost,
   };
 }
 
-export async function generateSpeechDataUrl({
-  text,
-  style,
-  voiceId,
-  speakingRate,
-  format,
-}: ElevenLabsTtsInput): Promise<string> {
+export async function generateSpeechDataUrl(input: ElevenLabsTtsInput): Promise<string> {
   const apiKey = getRequiredEnv("ELEVENLABS_API_KEY");
   const baseUrl =
     process.env.ELEVENLABS_BASE_URL?.replace(/\/$/, "") || "https://api.elevenlabs.io/v1";
 
-  const preset = getVoicePresetByStyle(style);
-  const targetVoiceId = voiceId || preset.elevenLabs.voiceId;
-  const voiceSettings = mergeVoiceSettings(preset.elevenLabs.voiceSettings, speakingRate);
+  const preset = getVoicePresetByIdOrStyle(input.presetId, input.style);
+  const targetVoiceId = input.voiceId || preset.elevenLabs.voiceId;
+  const voiceSettings = mergeVoiceSettings(preset.elevenLabs.voiceSettings, input);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
 
   try {
-    const url = `${baseUrl}/text-to-speech/${targetVoiceId}?output_format=${format}`;
+    const url = `${baseUrl}/text-to-speech/${targetVoiceId}?output_format=${input.format}`;
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -57,10 +54,10 @@ export async function generateSpeechDataUrl({
         Accept: "audio/mpeg",
       },
       body: JSON.stringify({
-        text,
+        text: input.text,
         model_id: preset.elevenLabs.modelId,
         voice_settings: voiceSettings,
-        speed: speakingRate,
+        speed: input.speakingRate,
       }),
       signal: controller.signal,
     });

@@ -1,5 +1,12 @@
 import { AppError, parseProviderStatusCode } from "@/lib/api-error";
-import type { Audience, Locale, SpeechStyle } from "@/types/api";
+import type {
+  Audience,
+  ColloquialLevel,
+  Locale,
+  Rhythm,
+  SentenceLength,
+  SpeechStyle,
+} from "@/types/api";
 
 const STYLE_PROMPT: Record<SpeechStyle, string> = {
   neutral: "Use neutral and natural spoken English.",
@@ -17,6 +24,22 @@ const AUDIENCE_HINT: Record<Audience, string> = {
 const LOCALE_HINT: Record<Locale, string> = {
   "zh-CN": "The source text is Simplified Chinese.",
   "zh-TW": "The source text is Traditional Chinese.",
+};
+
+const COLLOQUIAL_HINT: Record<ColloquialLevel, string> = {
+  low: "Keep wording polished, with light colloquial language.",
+  medium: "Use everyday spoken English with natural contractions.",
+  high: "Use highly conversational spoken English with energetic phrasing.",
+};
+
+const SENTENCE_LENGTH_HINT: Record<SentenceLength, string> = {
+  short: "Target 8-14 words per sentence.",
+  medium: "Target 12-20 words per sentence.",
+};
+
+const RHYTHM_HINT: Record<Rhythm, string> = {
+  steady: "Use smooth pacing and balanced sentence rhythm.",
+  punchy: "Use punchy pacing, short beats, and clear pauses.",
 };
 
 interface ChatMessage {
@@ -42,6 +65,10 @@ interface TranslateInput {
   style: SpeechStyle;
   locale: Locale;
   audience: Audience;
+  videoMode: boolean;
+  colloquialLevel: ColloquialLevel;
+  sentenceLength: SentenceLength;
+  rhythm: Rhythm;
 }
 
 function getRequiredEnv(name: string): string {
@@ -56,13 +83,22 @@ function isChineseText(text: string): boolean {
   return /[\u4E00-\u9FFF]/.test(text);
 }
 
-export async function translateChineseToEnglish({
-  text,
-  style,
-  locale,
-  audience,
-}: TranslateInput): Promise<string> {
-  if (!isChineseText(text)) {
+function buildVideoModePrompt(input: TranslateInput): string[] {
+  if (!input.videoMode) {
+    return ["Video mode is off. Keep translation natural and spoken."];
+  }
+
+  return [
+    "Video mode is on. Optimize for short-video voice-over.",
+    "Prefer active voice and avoid long subordinate clauses.",
+    SENTENCE_LENGTH_HINT[input.sentenceLength],
+    RHYTHM_HINT[input.rhythm],
+    COLLOQUIAL_HINT[input.colloquialLevel],
+  ];
+}
+
+export async function translateChineseToEnglish(input: TranslateInput): Promise<string> {
+  if (!isChineseText(input.text)) {
     throw new AppError("TRANSLATION_LANGUAGE_UNSUPPORTED");
   }
 
@@ -80,14 +116,14 @@ export async function translateChineseToEnglish({
     {
       role: "user",
       content: [
-        STYLE_PROMPT[style],
-        AUDIENCE_HINT[audience],
-        LOCALE_HINT[locale],
-        "Keep the output natural for voice-over delivery.",
+        STYLE_PROMPT[input.style],
+        AUDIENCE_HINT[input.audience],
+        LOCALE_HINT[input.locale],
+        ...buildVideoModePrompt(input),
         "Return only the final English translation.",
         "",
         "Chinese text:",
-        text,
+        input.text,
       ].join("\n"),
     },
   ];
@@ -105,7 +141,7 @@ export async function translateChineseToEnglish({
       body: JSON.stringify({
         model,
         messages,
-        temperature: 0.6,
+        temperature: 0.65,
       }),
       signal: controller.signal,
     });

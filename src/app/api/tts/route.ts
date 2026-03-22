@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { isKnownVoiceId } from "@/config/voice-presets";
+import { isKnownPresetId, isKnownVoiceId } from "@/config/voice-presets";
 import {
   AppError,
   errorResponse,
@@ -27,19 +27,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const { text, style, voiceId, speakingRate, format } = parsed.data;
+    if (parsed.data.presetId && !isKnownPresetId(parsed.data.presetId)) {
+      return errorResponse("VALIDATION_PRESET_ID_UNKNOWN", requestId);
+    }
 
-    if (voiceId && !isKnownVoiceId(voiceId)) {
+    if (parsed.data.voiceId && !isKnownVoiceId(parsed.data.voiceId)) {
       return errorResponse("VALIDATION_VOICE_ID_UNKNOWN", requestId);
     }
 
-    const audioUrl = await generateSpeechDataUrl({
-      text,
-      style,
-      voiceId,
-      speakingRate,
-      format,
-    });
+    const audioUrl = await generateSpeechDataUrl(parsed.data);
 
     return NextResponse.json<TtsSuccessResponse>({
       ok: true,

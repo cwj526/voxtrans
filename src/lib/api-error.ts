@@ -35,6 +35,11 @@ const ERROR_MAP: Record<string, ErrorMeta> = {
     message: "声音 ID 不存在，请重新选择",
     retryable: false,
   },
+  VALIDATION_PRESET_ID_UNKNOWN: {
+    httpStatus: 400,
+    message: "语音预设不存在，请重新选择",
+    retryable: false,
+  },
   TRANSLATION_PROVIDER_TIMEOUT: {
     httpStatus: 502,
     message: "翻译服务响应超时，请稍后重试",

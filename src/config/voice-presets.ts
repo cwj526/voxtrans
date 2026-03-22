@@ -129,6 +129,21 @@ export function getVoicePresetByStyle(style: SpeechStyle): VoicePreset {
   return getVoicePresetById(id) || VOICE_PRESETS[0];
 }
 
+export function getVoicePresetByIdOrStyle(presetId: string | undefined, style: SpeechStyle): VoicePreset {
+  if (presetId) {
+    const preset = getVoicePresetById(presetId);
+    if (preset) {
+      return preset;
+    }
+  }
+
+  return getVoicePresetByStyle(style);
+}
+
 export function isKnownVoiceId(voiceId: string): boolean {
   return VOICE_PRESETS.some((preset) => preset.elevenLabs.voiceId === voiceId);
+}
+
+export function isKnownPresetId(presetId: string): boolean {
+  return VOICE_PRESETS.some((preset) => preset.id === presetId);
 }

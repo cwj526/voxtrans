@@ -26,13 +26,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { text, style, locale, audience } = parsed.data;
-    const translatedText = await translateChineseToEnglish({
-      text,
-      style,
-      locale,
-      audience,
-    });
+    const translatedText = await translateChineseToEnglish(parsed.data);
 
     return NextResponse.json<TranslateSuccessResponse>({
       ok: true,
