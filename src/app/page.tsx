@@ -79,6 +79,7 @@ type HistoryItem = {
 
 const HISTORY_KEY = "voxtrans.history.v1";
 const TEMPLATE_KEY = "voxtrans.template.v1";
+const DEMO_ACCESS_CODE_KEY = "voxtrans.demo-access-code.v1";
 
 const STYLE_OPTIONS: { label: string; value: SpeechStyle }[] = [
   { label: "Neutral", value: "neutral" },
@@ -214,6 +215,7 @@ export default function Home() {
   const [isSynthesizing, setIsSynthesizing] = useState(false);
 
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [demoAccessCode, setDemoAccessCode] = useState("");
 
   const selectedPreset = useMemo(
     () => getVoicePresetById(template.presetId) || VOICE_PRESETS[0],
@@ -245,6 +247,11 @@ export default function Home() {
         const parsed = JSON.parse(rawTemplate) as Partial<TemplateState>;
         setTemplate((prev) => ({ ...prev, ...parsed }));
       }
+
+      const rawDemoAccessCode = localStorage.getItem(DEMO_ACCESS_CODE_KEY);
+      if (rawDemoAccessCode) {
+        setDemoAccessCode(rawDemoAccessCode);
+      }
     } catch {
       setNotice({ type: "error", message: "本地配置加载失败，已使用默认值。" });
     }
@@ -253,6 +260,10 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem(TEMPLATE_KEY, JSON.stringify(template));
   }, [template]);
+
+  useEffect(() => {
+    localStorage.setItem(DEMO_ACCESS_CODE_KEY, demoAccessCode.trim());
+  }, [demoAccessCode]);
 
   useEffect(() => {
     if (!notice) return;
@@ -357,7 +368,10 @@ export default function Home() {
     try {
       const response = await fetch("/api/translate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(demoAccessCode.trim() ? { "x-demo-access-code": demoAccessCode.trim() } : {}),
+        },
         body: JSON.stringify({
           text,
           style: template.style,
@@ -412,7 +426,10 @@ export default function Home() {
     try {
       const response = await fetch("/api/tts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(demoAccessCode.trim() ? { "x-demo-access-code": demoAccessCode.trim() } : {}),
+        },
         body: JSON.stringify({
           text,
           style: template.style,
@@ -641,8 +658,19 @@ export default function Home() {
                   中文文案到英文脚本与语音输出工作台。输入、生成、历史三段式流程，面向稳定高质的口播制作。
                 </p>
               </div>
-              <div className="w-fit rounded-full border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700">
-                Status: {statusLabel(status)}
+              <div className="w-full max-w-sm space-y-2">
+                <div className="w-fit rounded-full border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700">
+                  Status: {statusLabel(status)}
+                </div>
+                <label className="block space-y-1 text-sm">
+                  <span className="text-xs font-medium text-slate-600">体验码（可选）</span>
+                  <input
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
+                    placeholder="如已设置访问保护，请输入体验码"
+                    value={demoAccessCode}
+                    onChange={(event) => setDemoAccessCode(event.target.value)}
+                  />
+                </label>
               </div>
             </div>
           </header>

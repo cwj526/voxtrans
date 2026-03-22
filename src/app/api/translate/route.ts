@@ -7,6 +7,7 @@ import {
   mapZodErrorToCode,
   normalizeUnknownError,
 } from "@/lib/api-error";
+import { guardDemoAccess } from "@/lib/demo-guard";
 import { TranslateRequestSchema } from "@/lib/schemas";
 import { translateChineseToEnglish } from "@/lib/translate";
 import type { TranslateSuccessResponse } from "@/types/api";
@@ -15,6 +16,8 @@ export async function POST(request: Request) {
   const requestId = getRequestIdFromHeaders(request);
 
   try {
+    guardDemoAccess(request);
+
     const rawBody: unknown = await request.json();
     const parsed = TranslateRequestSchema.safeParse(rawBody);
 

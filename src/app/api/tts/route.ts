@@ -8,6 +8,7 @@ import {
   mapZodErrorToCode,
   normalizeUnknownError,
 } from "@/lib/api-error";
+import { guardDemoAccess } from "@/lib/demo-guard";
 import { TtsRequestSchema } from "@/lib/schemas";
 import { generateSpeechDataUrl } from "@/lib/tts";
 import type { TtsSuccessResponse } from "@/types/api";
@@ -16,6 +17,8 @@ export async function POST(request: Request) {
   const requestId = getRequestIdFromHeaders(request);
 
   try {
+    guardDemoAccess(request);
+
     const rawBody: unknown = await request.json();
     const parsed = TtsRequestSchema.safeParse(rawBody);
 

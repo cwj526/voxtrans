@@ -40,6 +40,21 @@ const ERROR_MAP: Record<string, ErrorMeta> = {
     message: "语音预设不存在，请重新选择",
     retryable: false,
   },
+  AUTH_DEMO_CODE_REQUIRED: {
+    httpStatus: 401,
+    message: "请先输入体验码后再试",
+    retryable: false,
+  },
+  AUTH_DEMO_CODE_INVALID: {
+    httpStatus: 403,
+    message: "体验码不正确，请检查后重试",
+    retryable: false,
+  },
+  RATE_LIMIT_EXCEEDED: {
+    httpStatus: 429,
+    message: "当前访问较多，请稍后再试",
+    retryable: true,
+  },
   TRANSLATION_PROVIDER_TIMEOUT: {
     httpStatus: 502,
     message: "翻译服务响应超时，请稍后重试",

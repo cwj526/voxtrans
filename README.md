@@ -102,7 +102,20 @@ TRANSLATION_MODEL=gpt-5.4
 
 ELEVENLABS_API_KEY=
 ELEVENLABS_BASE_URL=https://api.elevenlabs.io/v1
+
+# 可选：体验保护
+DEMO_ACCESS_CODE=
+DEMO_MAX_REQUESTS_PER_HOUR=30
 ```
+
+### 体验保护说明（推荐线上开启）
+
+- `DEMO_ACCESS_CODE`：
+  - 为空时：任何用户都可访问（仅受限流影响）。
+  - 非空时：用户需在页面右上角输入体验码后才能调用 API。
+- `DEMO_MAX_REQUESTS_PER_HOUR`：
+  - 按 IP + 接口（translate / tts）每小时限流。
+  - 设为 `0` 可关闭限流（不建议线上关闭）。
 
 ## API 概览
 
