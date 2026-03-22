@@ -721,7 +721,7 @@ export default function Home() {
                   <label className="space-y-1 text-sm">
                     <span className="font-medium text-slate-700">翻译风格</span>
                     <select
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
+                      className="studio-select w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
                       value={template.style}
                       onChange={(event) =>
                         setTemplate((prev) => ({ ...prev, style: event.target.value as SpeechStyle }))
@@ -738,7 +738,7 @@ export default function Home() {
                   <label className="space-y-1 text-sm">
                     <span className="font-medium text-slate-700">目标受众</span>
                     <select
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
+                      className="studio-select w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
                       value={template.audience}
                       onChange={(event) =>
                         setTemplate((prev) => ({ ...prev, audience: event.target.value as Audience }))
@@ -755,7 +755,7 @@ export default function Home() {
                   <label className="space-y-1 text-sm">
                     <span className="font-medium text-slate-700">短视频优化</span>
                     <select
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
+                      className="studio-select w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
                       value={template.videoMode ? "on" : "off"}
                       onChange={(event) =>
                         setTemplate((prev) => ({ ...prev, videoMode: event.target.value === "on" }))
@@ -769,7 +769,7 @@ export default function Home() {
                   <label className="space-y-1 text-sm">
                     <span className="font-medium text-slate-700">口语化强度</span>
                     <select
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
+                      className="studio-select w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
                       value={template.colloquialLevel}
                       onChange={(event) =>
                         setTemplate((prev) => ({
@@ -789,7 +789,7 @@ export default function Home() {
                   <label className="space-y-1 text-sm">
                     <span className="font-medium text-slate-700">句子长度</span>
                     <select
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
+                      className="studio-select w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
                       value={template.sentenceLength}
                       onChange={(event) =>
                         setTemplate((prev) => ({
@@ -809,7 +809,7 @@ export default function Home() {
                   <label className="space-y-1 text-sm">
                     <span className="font-medium text-slate-700">表达节奏</span>
                     <select
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
+                      className="studio-select w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
                       value={template.rhythm}
                       onChange={(event) =>
                         setTemplate((prev) => ({ ...prev, rhythm: event.target.value as Rhythm }))
@@ -837,7 +837,7 @@ export default function Home() {
                   <label className="space-y-1 text-sm md:col-span-2">
                     <span className="font-medium text-slate-700">语音预设</span>
                     <select
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
+                      className="studio-select w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
                       value={template.presetId}
                       onChange={(event) => applyPreset(event.target.value)}
                     >
@@ -852,7 +852,7 @@ export default function Home() {
                   <label className="space-y-1 text-sm">
                     <span className="font-medium text-slate-700">音频格式</span>
                     <select
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
+                      className="studio-select w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
                       value={template.format}
                       onChange={(event) =>
                         setTemplate((prev) => ({ ...prev, format: event.target.value as AudioFormat }))
@@ -952,7 +952,7 @@ export default function Home() {
                     <label className="space-y-1 text-sm">
                       <span className="font-medium text-slate-700">说话者增强（use_speaker_boost）</span>
                       <select
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
+                        className="studio-select w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
                         value={template.useSpeakerBoost ? "true" : "false"}
                         onChange={(event) =>
                           setTemplate((prev) => ({ ...prev, useSpeakerBoost: event.target.value === "true" }))
