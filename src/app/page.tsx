@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 
-import type { SpeechStyle, TranslateResponse, TtsResponse } from "@/types/api";
+import type {
+  Audience,
+  Locale,
+  SpeechStyle,
+  TranslateResponse,
+  TtsResponse,
+} from "@/types/api";
 
 const STYLE_OPTIONS: { label: string; value: SpeechStyle }[] = [
   { label: "Neutral", value: "neutral" },
@@ -13,7 +19,7 @@ const STYLE_OPTIONS: { label: string; value: SpeechStyle }[] = [
 
 export default function Home() {
   const [chineseText, setChineseText] = useState("");
-  const [style, setStyle] = useState<SpeechStyle>("neutral");
+  const [style, setStyle] = useState<SpeechStyle>("warm");
   const [translatedText, setTranslatedText] = useState("");
   const [audioUrl, setAudioUrl] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,12 +40,17 @@ export default function Home() {
       const translateRes = await fetch("/api/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, style }),
+        body: JSON.stringify({
+          text,
+          style,
+          locale: "zh-CN" satisfies Locale,
+          audience: "general" satisfies Audience,
+        }),
       });
 
       const translateData = (await translateRes.json()) as TranslateResponse;
       if (!translateRes.ok || !translateData.ok) {
-        throw new Error(translateData.message ?? "翻译失败");
+        throw new Error(translateData.error?.message || "翻译失败");
       }
 
       setTranslatedText(translateData.translatedText);
@@ -47,12 +58,17 @@ export default function Home() {
       const ttsRes = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: translateData.translatedText, style }),
+        body: JSON.stringify({
+          text: translateData.translatedText,
+          style,
+          speakingRate: 1.0,
+          format: "mp3_44100_128",
+        }),
       });
 
       const ttsData = (await ttsRes.json()) as TtsResponse;
       if (!ttsRes.ok || !ttsData.ok) {
-        throw new Error(ttsData.message ?? "语音生成失败");
+        throw new Error(ttsData.error?.message || "语音生成失败");
       }
 
       setAudioUrl(ttsData.audioUrl);
@@ -66,9 +82,7 @@ export default function Home() {
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-10">
       <h1 className="text-2xl font-semibold">VoxTrans Demo</h1>
-      <p className="mt-2 text-sm text-zinc-600">
-        中文文案 - 英文翻译 - 英文语音（当前为 Mock API）
-      </p>
+      <p className="mt-2 text-sm text-zinc-600">中文文案 - 英文翻译 - 英文语音（真实 API）</p>
 
       <section className="mt-6 space-y-4 rounded-xl border border-zinc-200 p-4">
         <label className="block space-y-2">

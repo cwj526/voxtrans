@@ -1,27 +1,57 @@
 import { NextResponse } from "next/server";
 
-import { mockTranslateChineseToEnglish } from "@/lib/translate";
-import type { TranslateRequest, TranslateResponse } from "@/types/api";
+import {
+  AppError,
+  errorResponse,
+  getRequestIdFromHeaders,
+  mapZodErrorToCode,
+  normalizeUnknownError,
+} from "@/lib/api-error";
+import { TranslateRequestSchema } from "@/lib/schemas";
+import { translateChineseToEnglish } from "@/lib/translate";
+import type { TranslateSuccessResponse } from "@/types/api";
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as Partial<TranslateRequest>;
-  const text = body.text?.trim();
+  const requestId = getRequestIdFromHeaders(request);
 
-  if (!text) {
-    return NextResponse.json<TranslateResponse>(
-      {
-        ok: false,
-        translatedText: "",
-        message: "`text` is required.",
-      },
-      { status: 400 },
-    );
+  try {
+    const rawBody: unknown = await request.json();
+    const parsed = TranslateRequestSchema.safeParse(rawBody);
+
+    if (!parsed.success) {
+      return errorResponse(
+        mapZodErrorToCode(parsed.error),
+        requestId,
+        parsed.error.flatten().fieldErrors,
+      );
+    }
+
+    const { text, style, locale, audience } = parsed.data;
+    const translatedText = await translateChineseToEnglish({
+      text,
+      style,
+      locale,
+      audience,
+    });
+
+    return NextResponse.json<TranslateSuccessResponse>({
+      ok: true,
+      translatedText,
+      requestId,
+      error: null,
+    });
+  } catch (error) {
+    if (error instanceof AppError) {
+      return errorResponse(error.code, requestId, error.details);
+    }
+
+    const appError = normalizeUnknownError(error);
+    console.error("translate.unhandled", {
+      requestId,
+      message: appError.message,
+      details: appError.details,
+    });
+
+    return errorResponse(appError.code, requestId);
   }
-
-  const translatedText = await mockTranslateChineseToEnglish(text, body.style);
-
-  return NextResponse.json<TranslateResponse>({
-    ok: true,
-    translatedText,
-  });
 }

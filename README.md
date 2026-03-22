@@ -1,44 +1,37 @@
 # VoxTrans
 
-一个面向非技术用户的网页工具骨架：
-- 中文口播文案 -> 英文翻译
-- 英文文案 -> 英文语音（多风格）
+中文口播文案 -> 英文翻译 -> ElevenLabs 语音。
 
-当前阶段为 Step 1：项目骨架 + Mock API，可直接运行并继续扩展。
+当前版本已接入：
+- Tuzi（OpenAI-compatible）翻译
+- ElevenLabs 语音生成
+- Zod 请求校验
+- 分层错误码与统一响应结构
+- 6 组 voice/style 预设（见 `docs/tts-pipeline-spec.md`）
 
-## 技术栈
-
-- Next.js (App Router)
-- TypeScript
-- Tailwind CSS
-- npm
-
-## 快速启动
+## Quick Start
 
 ```bash
 npm install
+cp .env.example .env.local
 npm run dev
 ```
 
-打开 [http://localhost:3000](http://localhost:3000)。
+访问 `http://localhost:3000`。
 
-## 环境变量
+## Environment Variables
 
-复制示例文件并填写后续真实服务配置：
+```env
+TRANSLATION_PROVIDER=tuzi
+TRANSLATION_API_KEY=
+TRANSLATION_BASE_URL=https://api.tu-zi.com/v1
+TRANSLATION_MODEL=gpt-5.4
 
-```bash
-cp .env.example .env.local
+ELEVENLABS_API_KEY=
+ELEVENLABS_BASE_URL=https://api.elevenlabs.io/v1
 ```
 
-示例键名：
-- `TRANSLATION_API_KEY`
-- `TRANSLATION_BASE_URL`
-- `TRANSLATION_MODEL`
-- `ELEVENLABS_API_KEY`
-- `ELEVENLABS_BASE_URL`
-- `ELEVENLABS_VOICE_ID`
-
-## 当前 API 占位接口
+## API Contracts
 
 ### `POST /api/translate`
 
@@ -47,16 +40,20 @@ Request:
 ```json
 {
   "text": "中文文案",
-  "style": "neutral"
+  "style": "warm",
+  "locale": "zh-CN",
+  "audience": "general"
 }
 ```
 
-Response:
+Success:
 
 ```json
 {
   "ok": true,
-  "translatedText": "[Mock Translation ...]"
+  "translatedText": "...",
+  "requestId": "...",
+  "error": null
 }
 ```
 
@@ -67,24 +64,42 @@ Request:
 ```json
 {
   "text": "English text",
-  "style": "neutral",
-  "voiceId": "default"
+  "style": "warm",
+  "voiceId": "EXAVITQu4vr4xnSDxMaL",
+  "speakingRate": 1.0,
+  "format": "mp3_44100_128"
 }
 ```
 
-Response:
+Success:
 
 ```json
 {
   "ok": true,
-  "audioUrl": "https://example.com/mock-audio.mp3?..."
+  "audioUrl": "data:audio/mpeg;base64,...",
+  "requestId": "...",
+  "error": null
 }
 ```
 
-## 目录说明（后续扩展位）
+Failure shape:
 
-- `src/app/api/translate/route.ts`: 翻译 API 路由
-- `src/app/api/tts/route.ts`: 语音 API 路由
-- `src/lib/translate`: 翻译服务封装（后续接 DeepSeek/OpenAI）
-- `src/lib/tts`: TTS 服务封装（后续接 ElevenLabs）
-- `src/types`: 请求/响应类型
+```json
+{
+  "ok": false,
+  "requestId": "...",
+  "error": {
+    "code": "VALIDATION_PARAM_OUT_OF_RANGE",
+    "message": "语速参数超出允许范围（0.85～1.20）",
+    "retryable": false
+  }
+}
+```
+
+## Key Files
+
+- `src/lib/schemas.ts`: Zod schemas
+- `src/lib/api-error.ts`: error code map + response helpers
+- `src/config/voice-presets.ts`: 6 组 voice/style presets
+- `src/app/api/translate/route.ts`: translate endpoint
+- `src/app/api/tts/route.ts`: tts endpoint
