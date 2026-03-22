@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { DEFAULT_VOICE_PRESET_ID, VOICE_PRESETS, getVoicePresetById } from "@/config/voice-presets";
+import {
+  clearHistoryAudioBlobs,
+  deleteHistoryAudioBlob,
+  getHistoryAudioBlob,
+  putHistoryAudioBlob,
+} from "@/lib/audio-history-db";
 import type {
   Audience,
   AudioFormat,
@@ -68,6 +74,7 @@ type HistoryItem = {
   voiceStyle: number;
   useSpeakerBoost: boolean;
   hasAudio: boolean;
+  audioKey?: string;
 };
 
 const HISTORY_KEY = "voxtrans.history.v1";
@@ -78,11 +85,6 @@ const STYLE_OPTIONS: { label: string; value: SpeechStyle }[] = [
   { label: "News", value: "news" },
   { label: "Warm", value: "warm" },
   { label: "Energetic", value: "energetic" },
-];
-
-const LOCALE_OPTIONS: { label: string; value: Locale }[] = [
-  { label: "简体中文", value: "zh-CN" },
-  { label: "繁体中文", value: "zh-TW" },
 ];
 
 const AUDIENCE_OPTIONS: { label: string; value: Audience }[] = [
@@ -122,6 +124,12 @@ function timestampForFilename(date = new Date()): string {
   return `${yyyy}${mm}${dd}_${hh}${mi}${ss}`;
 }
 
+function formatHistoryCreatedAt(createdAt: string): string {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return createdAt;
+  return date.toISOString().replace("T", " ").replace("Z", " UTC");
+}
+
 function dataUrlToBlob(dataUrl: string): Blob {
   const [meta, data] = dataUrl.split(",");
   const mimeMatch = meta.match(/data:(.*?);base64/);
@@ -146,6 +154,17 @@ function downloadBlob(blob: Blob, filename: string) {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+async function resolveAudioBlob(source: string): Promise<Blob | null> {
+  if (!source) return null;
+  if (source.startsWith("data:audio")) return dataUrlToBlob(source);
+  if (source.startsWith("blob:")) {
+    const response = await fetch(source);
+    if (!response.ok) return null;
+    return response.blob();
+  }
+  return null;
 }
 
 function statusLabel(status: UiStatus): string {
@@ -241,9 +260,27 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [notice]);
 
-  function pushHistory(hasAudio: boolean, translatedText: string) {
+  useEffect(() => {
+    return () => {
+      if (audioUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
+
+  function pushHistory({
+    hasAudio,
+    translatedText,
+    itemId,
+    audioKey,
+  }: {
+    hasAudio: boolean;
+    translatedText: string;
+    itemId?: string;
+    audioKey?: string;
+  }) {
     const item: HistoryItem = {
-      id: crypto.randomUUID(),
+      id: itemId || crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       chineseText,
       englishText: translatedText,
@@ -263,10 +300,22 @@ export default function Home() {
       voiceStyle: template.voiceStyle,
       useSpeakerBoost: template.useSpeakerBoost,
       hasAudio,
+      audioKey,
     };
 
     setHistory((prev) => {
-      const next = [item, ...prev].slice(0, 20);
+      const all = [item, ...prev];
+      const next = all.slice(0, 20);
+      const dropped = all.slice(20);
+
+      if (dropped.length > 0) {
+        for (const droppedItem of dropped) {
+          if (droppedItem.audioKey) {
+            void deleteHistoryAudioBlob(droppedItem.audioKey).catch(() => undefined);
+          }
+        }
+      }
+
       localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
       return next;
     });
@@ -312,7 +361,7 @@ export default function Home() {
         body: JSON.stringify({
           text,
           style: template.style,
-          locale: template.locale,
+          locale: "zh-CN",
           audience: template.audience,
           videoMode: template.videoMode,
           colloquialLevel: template.colloquialLevel,
@@ -339,7 +388,7 @@ export default function Home() {
       setAudioUrl("");
       setTtsRequestId("");
       setStatus("translated");
-      pushHistory(false, data.translatedText);
+      pushHistory({ hasAudio: false, translatedText: data.translatedText });
       setNotice({ type: "success", message: "英文文本已生成。" });
     } catch {
       setStatus("error");
@@ -392,10 +441,34 @@ export default function Home() {
       }
 
       setTtsRequestId(data.requestId);
-      setAudioUrl(data.audioUrl);
+      const audioBlob = dataUrlToBlob(data.audioUrl);
+      const previewUrl = URL.createObjectURL(audioBlob);
+      const historyId = crypto.randomUUID();
+      let cachedAudioKey: string | undefined;
+
+      setAudioUrl(previewUrl);
+
+      try {
+        await putHistoryAudioBlob(historyId, audioBlob);
+        cachedAudioKey = historyId;
+      } catch {
+        setNotice({
+          type: "info",
+          message: "英文语音已生成，但历史音频缓存写入失败，后续可重新生成。",
+        });
+      }
+
       setStatus("voiced");
-      pushHistory(true, text);
-      setNotice({ type: "success", message: "英文语音已生成。" });
+      pushHistory({
+        hasAudio: Boolean(cachedAudioKey),
+        translatedText: text,
+        itemId: historyId,
+        audioKey: cachedAudioKey,
+      });
+
+      if (cachedAudioKey) {
+        setNotice({ type: "success", message: "英文语音已生成并加入历史缓存。" });
+      }
     } catch {
       setStatus("error");
       setErrorState({ message: "网络异常，语音请求失败。", step: "tts", retryable: true });
@@ -429,24 +502,34 @@ export default function Home() {
     setNotice({ type: "success", message: "英文文本已下载。" });
   }
 
-  function downloadAudio() {
-    if (!audioUrl.startsWith("data:audio")) {
+  async function downloadAudio() {
+    if (!audioUrl) {
       setNotice({ type: "error", message: "当前没有可下载的音频。" });
       return;
     }
 
-    const blob = dataUrlToBlob(audioUrl);
+    const blob = await resolveAudioBlob(audioUrl);
+    if (!blob) {
+      setNotice({ type: "error", message: "音频读取失败，请重新生成。" });
+      return;
+    }
+
     downloadBlob(blob, `voxtrans_audio_${template.style}_${timestampForFilename()}.mp3`);
     setNotice({ type: "success", message: "音频已下载。" });
   }
 
-  function openAudioInNewTab() {
-    if (!audioUrl.startsWith("data:audio")) {
+  async function openAudioInNewTab() {
+    if (!audioUrl) {
       setNotice({ type: "error", message: "当前没有可打开的音频。" });
       return;
     }
 
-    const blob = dataUrlToBlob(audioUrl);
+    const blob = await resolveAudioBlob(audioUrl);
+    if (!blob) {
+      setNotice({ type: "error", message: "音频读取失败，请重新生成。" });
+      return;
+    }
+
     const blobUrl = URL.createObjectURL(blob);
     const newWindow = window.open(blobUrl, "_blank", "noopener,noreferrer");
 
@@ -459,7 +542,7 @@ export default function Home() {
     setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
   }
 
-  function loadHistoryItem(item: HistoryItem) {
+  async function loadHistoryItem(item: HistoryItem) {
     setChineseText(item.chineseText);
     setEnglishText(item.englishText);
     setAudioUrl("");
@@ -481,13 +564,42 @@ export default function Home() {
       useSpeakerBoost: item.useSpeakerBoost,
     });
     setStatus("translated");
-    setNotice({
-      type: "info",
-      message: item.hasAudio ? "历史已载入，音频需重新生成或重新下载。" : "历史记录已载入到编辑区。",
-    });
+
+    if (!item.audioKey) {
+      setNotice({
+        type: "info",
+        message: item.hasAudio ? "历史已载入，音频缓存不存在，请重新生成。" : "历史记录已载入到编辑区。",
+      });
+      return;
+    }
+
+    try {
+      const blob = await getHistoryAudioBlob(item.audioKey);
+      if (!blob) {
+        setNotice({
+          type: "info",
+          message: "历史文本已载入，未找到对应音频缓存，请重新生成。",
+        });
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(blob);
+      setAudioUrl(objectUrl);
+      setNotice({ type: "success", message: "历史记录与音频缓存已载入。" });
+    } catch {
+      setNotice({
+        type: "info",
+        message: "历史文本已载入，音频缓存读取失败，请重新生成。",
+      });
+    }
   }
 
   function removeHistoryItem(id: string) {
+    const target = history.find((item) => item.id === id);
+    if (target?.audioKey) {
+      void deleteHistoryAudioBlob(target.audioKey).catch(() => undefined);
+    }
+
     setHistory((prev) => {
       const next = prev.filter((item) => item.id !== id);
       localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
@@ -498,7 +610,11 @@ export default function Home() {
   function clearHistory() {
     setHistory([]);
     localStorage.setItem(HISTORY_KEY, JSON.stringify([]));
-    setNotice({ type: "info", message: "历史记录已清空。" });
+    void clearHistoryAudioBlobs().catch(() => undefined);
+    setNotice({
+      type: "info",
+      message: "历史记录已清空。",
+    });
   }
 
   function retryLastStep() {
@@ -510,7 +626,7 @@ export default function Home() {
     void runTts();
   }
 
-  const audioReady = audioUrl.startsWith("data:audio");
+  const audioReady = Boolean(audioUrl);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,#f9fbff_0%,#f4f7fb_48%,#edf1f7_100%)] pb-12">
@@ -592,23 +708,6 @@ export default function Home() {
                   </label>
 
                   <label className="space-y-1 text-sm">
-                    <span className="font-medium text-slate-700">中文类型</span>
-                    <select
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
-                      value={template.locale}
-                      onChange={(event) =>
-                        setTemplate((prev) => ({ ...prev, locale: event.target.value as Locale }))
-                      }
-                    >
-                      {LOCALE_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="space-y-1 text-sm">
                     <span className="font-medium text-slate-700">目标受众</span>
                     <select
                       className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
@@ -679,7 +778,7 @@ export default function Home() {
                     </select>
                   </label>
 
-                  <label className="space-y-1 text-sm md:col-span-2">
+                  <label className="space-y-1 text-sm">
                     <span className="font-medium text-slate-700">表达节奏</span>
                     <select
                       className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
@@ -767,7 +866,7 @@ export default function Home() {
                   <summary className="cursor-pointer select-none font-medium text-slate-800">高级参数</summary>
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
                     <label className="space-y-1 text-sm md:col-span-2">
-                      <span className="font-medium text-slate-700">Voice ID</span>
+                      <span className="font-medium text-slate-700">音色 ID（Voice ID）</span>
                       <input
                         className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
                         value={template.voiceId}
@@ -778,7 +877,7 @@ export default function Home() {
                     </label>
 
                     <label className="space-y-1 text-sm">
-                      <span className="font-medium text-slate-700">stability</span>
+                      <span className="font-medium text-slate-700">稳定度（stability）</span>
                       <input
                         type="number"
                         min={0}
@@ -793,7 +892,7 @@ export default function Home() {
                     </label>
 
                     <label className="space-y-1 text-sm">
-                      <span className="font-medium text-slate-700">similarity_boost</span>
+                      <span className="font-medium text-slate-700">音色相似度（similarity_boost）</span>
                       <input
                         type="number"
                         min={0}
@@ -808,7 +907,7 @@ export default function Home() {
                     </label>
 
                     <label className="space-y-1 text-sm">
-                      <span className="font-medium text-slate-700">style</span>
+                      <span className="font-medium text-slate-700">表现风格（style）</span>
                       <input
                         type="number"
                         min={0}
@@ -823,7 +922,7 @@ export default function Home() {
                     </label>
 
                     <label className="space-y-1 text-sm">
-                      <span className="font-medium text-slate-700">use_speaker_boost</span>
+                      <span className="font-medium text-slate-700">说话者增强（use_speaker_boost）</span>
                       <select
                         className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300/60"
                         value={template.useSpeakerBoost ? "true" : "false"}
@@ -937,7 +1036,7 @@ export default function Home() {
                         key={item.id}
                         className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 transition hover:border-slate-300"
                       >
-                        <p className="text-xs text-slate-500">{new Date(item.createdAt).toLocaleString()}</p>
+                        <p className="text-xs text-slate-500">{formatHistoryCreatedAt(item.createdAt)}</p>
                         <p className="mt-1 line-clamp-2 text-sm text-slate-700">{item.chineseText}</p>
                         <p className="mt-1 line-clamp-2 text-xs text-slate-500">{item.englishText}</p>
                         <div className="mt-3 flex flex-wrap gap-2">
