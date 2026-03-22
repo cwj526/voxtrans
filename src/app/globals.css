@@ -1,8 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f3f6fb;
+  --foreground: #0f172a;
+  --surface-panel: #ffffff;
+  --surface-muted: #f8fafc;
+  --border-subtle: #dbe3ee;
+  --border-strong: #b8c5d6;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #64748b;
+  --accent: #1d4ed8;
+  --focus-ring: rgba(59, 130, 246, 0.28);
 }
 
 @theme inline {
@@ -13,5 +22,65 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: "PingFang SC", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: "Avenir Next", "PingFang SC", "Helvetica Neue", "Noto Sans SC", Arial, sans-serif;
+}
+
+@keyframes studioFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.studio-enter {
+  animation: studioFadeIn 320ms ease-out both;
+}
+
+textarea,
+input,
+select,
+button,
+details {
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+textarea:focus,
+input:focus,
+select:focus,
+button:focus-visible {
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
+summary::after {
+  content: "展开";
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+details[open] summary::after {
+  content: "收起";
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

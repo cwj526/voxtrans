@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "VoxTrans",
-  description: "Chinese script to English translation and speech demo",
+  description: "VoxTrans 专业翻译与语音工作台：中文文案到英文脚本与配音输出。",
 };
 
 export default function RootLayout({

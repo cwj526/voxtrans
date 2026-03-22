@@ -42,8 +42,7 @@ export async function generateSpeechDataUrl(input: ElevenLabsTtsInput): Promise<
   const voiceSettings = mergeVoiceSettings(preset.elevenLabs.voiceSettings, input);
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15_000);
-
+  const timeout = setTimeout(() => controller.abort(), 60_000);
   try {
     const url = `${baseUrl}/text-to-speech/${targetVoiceId}?output_format=${input.format}`;
     const response = await fetch(url, {
